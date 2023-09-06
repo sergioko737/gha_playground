@@ -1,0 +1,38 @@
+name: Test conditions
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, unlabeled]
+
+env:
+  API_BASE: https://api.github.com/repos
+  REPO: ${{ github.repository }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_PR: ${{ github.event.pull_request.number }}
+
+jobs:
+  test-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check labels
+        id: get-labels
+        run: |
+            # Fetch the labels for the PR under test
+            echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
+            labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
+            echo "Labels: ${labels}"
+            echo "labels=${labels}" >> "$GITHUB_OUTPUT"
+      - name: We stop on R0
+        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Stopping workflow..."
+          exit 0
+          
+      - name: Should not start 1
+        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Should not start 1"
+
+      - name: Should not start 2
+        run: |
+          echo "Should not start 2"
